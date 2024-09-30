@@ -1,26 +1,17 @@
 // Підключення необхідних модулів
 const fs = require('fs');
 const path = require('path');
-const { program } = require('commander');
 
-// Налаштування командного рядка з використанням Commander.js
-program
-  .requiredOption('-i, --input <path>', 'Шлях до вхідного JSON файлу')  // обов'язковий параметр
-  .option('-o, --output <path>', 'Шлях до вихідного файлу для запису результату')  // необов'язковий параметр
-  .option('-d, --display', 'Вивести результат у консоль')  // необов'язковий параметр
-  .parse(process.argv);  // Парсинг аргументів
-
-// Отримання значень опцій
-const options = program.opts();
+// Шлях до файлу з курсами валют
+const inputFilePath = path.resolve('data.json');
 
 // Перевірка наявності вхідного файлу
-if (!fs.existsSync(options.input)) {
+if (!fs.existsSync(inputFilePath)) {
   console.error("Cannot find input file");
   process.exit(1);  // Завершення програми з помилкою
 }
 
 // Читання вхідного JSON файлу
-const inputFilePath = path.resolve(options.input);
 let data;
 
 try {
@@ -31,19 +22,24 @@ try {
   process.exit(1);
 }
 
-// Якщо задано параметр --output, записуємо результат у файл
-if (options.output) {
-  const outputFilePath = path.resolve(options.output);
-  fs.writeFileSync(outputFilePath, JSON.stringify(data, null, 2), 'utf-8');
+// Перевірка наявності поля "currencies" у даних
+if (!Array.isArray(data)) {
+  console.error('Невірний формат даних: очікується масив курсів валют.');
+  process.exit(1);
+}
+
+// Форматування результатів у форматі <дата>:<курс>
+const formattedResults = data
+  .map(currency => `${currency.exchangedate}:${currency.rate}`)
+  .join('\n');
+
+// Записуємо результат у файл exchange_rate.txt
+const outputFilePath = path.resolve('exchange_rate.txt');
+
+try {
+  fs.writeFileSync(outputFilePath, formattedResults, 'utf-8');
   console.log(`Результат записано у файл: ${outputFilePath}`);
-}
-
-// Якщо задано параметр --display, виводимо результат у консоль
-if (options.display) {
-  console.log(JSON.stringify(data, null, 2));
-}
-
-// Якщо не задано ні --output, ні --display, програма не повинна нічого виводити
-if (!options.output && !options.display) {
-  process.exit(0);  // Завершуємо програму без виведення
+} catch (error) {
+  console.error('Помилка під час запису у файл:', error);
+  process.exit(1);
 }
